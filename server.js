@@ -1,3 +1,28 @@
+const express = require("express");
+const axios = require("axios");
+
+const app = express();
+app.use(express.json());
+
+// 🔑 CONFIG (YOUR REAL VALUES)
+const VERIFY_TOKEN = "myverifytoken";
+const ACCESS_TOKEN = "EAANbQebo13MBRIXnDEXCybEcF5yNwtuwRL0ebJagfNurBn3IXqziV2ZCgC85YPZCF1wJA4tkZB8TpuDPOXCiyHMViofX6BQlpEx8ZBuM9qrottDBgtZB0ZBVZBKoxZCQOfo38LSrhHLiygQzON7mMH50AIwKP5V6mLNe0t8tXGYZCvcflj14i5nClGhZBrp0LbNXQRLtVauEI3cdMfEfRcqn0ynZC1p3rMtxyxU8uV9eKIzm44clFWzbE2VxxRiXCsfOepnwGIeDteE7HC3fDvJJ0ZA8ToGz";
+const PHONE_NUMBER_ID = "1042701108929255";
+
+// ✅ VERIFY WEBHOOK
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token === VERIFY_TOKEN) {
+    console.log("Webhook verified");
+    return res.status(200).send(challenge);
+  }
+  return res.sendStatus(403);
+});
+
+// ✅ MAIN BOT LOGIC
 app.post("/webhook", async (req, res) => {
   try {
     const body = req.body;
@@ -30,9 +55,9 @@ I can:
 4. Help you understand difficult topics  
 
 💬 Try:
-- “Give me JAMB math questions”
-- “Explain photosynthesis”
-- “Teach me algebra”`;
+- Give me JAMB math questions
+- Explain photosynthesis
+- Teach me algebra`;
         }
 
         // 🟡 QUESTIONS
@@ -54,7 +79,7 @@ D. 6
 Reply with answers (e.g., 1A, 2C)`;
         }
 
-        // 🔵 EXPLANATION (QUESTION)
+        // 🔵 EXPLANATION
         else if (text.includes("explain question")) {
           reply = `📖 Explanation:
 
@@ -74,14 +99,14 @@ Correct answer: A`;
         else if (text.includes("photosynthesis")) {
           reply = `🌿 Photosynthesis Explained:
 
-Photosynthesis is the process by which plants make their food using sunlight.
+Photosynthesis is how plants make food using sunlight.
 
-Plants take in carbon dioxide and water, and with sunlight produce food and oxygen.
+They take in water and carbon dioxide and produce glucose (food) and oxygen.
 
 Simple: Plants use sunlight to make food 🌞`;
         }
 
-        // 🔥 SEND REPLY
+        // 🔥 SEND MESSAGE
         await axios.post(
           `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
           {
@@ -104,3 +129,7 @@ Simple: Plants use sunlight to make food 🌞`;
 
   res.sendStatus(200);
 });
+
+// ✅ PORT FOR RENDER
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running on port", PORT));
