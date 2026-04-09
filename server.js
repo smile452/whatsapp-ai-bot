@@ -5,16 +5,15 @@ const OpenAI = require("openai");
 const app = express();
 app.use(express.json());
 
-// 🔐 CONFIG
 const VERIFY_TOKEN = "myverifytoken";
-const ACCESS_TOKEN = "EAANbQebo13MBRBuvvygzpd1Q64br2JpkcuHOF5nEn2LZBGgRvT1G4iiXtr5SvkA3lMlsgeQ3TRXxfwYrhumODNjh9Dbpt18hH3WnaCkVs3p2T94YRo6f6DNrRaDPr8lumPZAX1ITpQcpKVY9zZCRZBYgvGprNqzarQ4UFoDdBzVsW00jONw2sYvLNsSekPoklE8ZAuW9qBhBoMRCBZBf17yplZCCvlC5NHM0MEZA4ZB0xvz6uZASYRi1YM7Naz2RMGuUQZBKkl60oXb3OZBbAA8gPQEJ7E83agZDZD"; // safer
-const PHONE_NUMBER_ID = "1042701108929255";
 
-// 🤖 OPENAI SETUP
+const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+
 const OpenAI = require("openai");
 
 const openai = new OpenAI({
-  apiKey: "sk-proj-xxxx"
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // ✅ VERIFY WEBHOOK
