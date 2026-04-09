@@ -1,13 +1,19 @@
 const express = require("express");
 const axios = require("axios");
+const OpenAI = require("openai");
 
 const app = express();
 app.use(express.json());
 
-// 🔐 CONFIG (PUT YOUR VALUES HERE)
+// 🔐 CONFIG
 const VERIFY_TOKEN = "myverifytoken";
-const ACCESS_TOKEN = "EAANbQebo13MBRBuvvygzpd1Q64br2JpkcuHOF5nEn2LZBGgRvT1G4iiXtr5SvkA3lMlsgeQ3TRXxfwYrhumODNjh9Dbpt18hH3WnaCkVs3p2T94YRo6f6DNrRaDPr8lumPZAX1ITpQcpKVY9zZCRZBYgvGprNqzarQ4UFoDdBzVsW00jONw2sYvLNsSekPoklE8ZAuW9qBhBoMRCBZBf17yplZCCvlC5NHM0MEZA4ZB0xvz6uZASYRi1YM7Naz2RMGuUQZBKkl60oXb3OZBbAA8gPQEJ7E83agZDZD"; 
+const ACCESS_TOKEN = process.env.ACCESS_TOKEN; // safer
 const PHONE_NUMBER_ID = "1042701108929255";
+
+// 🤖 OPENAI SETUP
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // ✅ VERIFY WEBHOOK
 app.get("/webhook", (req, res) => {
@@ -22,7 +28,7 @@ app.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-// 🤖 HANDLE INCOMING MESSAGE
+// 🤖 HANDLE MESSAGES
 app.post("/webhook", async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
@@ -64,21 +70,36 @@ I can:
 
       // 📘 EXAM SELECTION
       else if (text.includes("waec")) {
-        reply = "📘 WAEC selected. Send your question or topic.";
+        reply = "📘 WAEC selected. Send your question.";
       }
       else if (text.includes("neco")) {
-        reply = "📗 NECO selected. Send your question or topic.";
+        reply = "📗 NECO selected. Send your question.";
       }
       else if (text.includes("jamb")) {
-        reply = "📙 JAMB selected. Send your question or topic.";
+        reply = "📙 JAMB selected. Send your question.";
       }
 
-      // 🧠 DEFAULT
+      // 🧠 AI RESPONSE
       else {
-        reply = "❓ Send a valid question or type WAEC / NECO / JAMB.";
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4.1-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are Classify AI, an educational assistant for Nigerian students.
+Explain answers clearly and simply for WAEC, NECO, and JAMB students.`
+            },
+            {
+              role: "user",
+              content: text
+            }
+          ]
+        });
+
+        reply = aiResponse.choices[0].message.content;
       }
 
-      // 📤 SEND MESSAGE BACK
+      // 📤 SEND MESSAGE
       await axios.post(
         `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
         {
