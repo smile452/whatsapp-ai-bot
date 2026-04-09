@@ -38,7 +38,7 @@ app.get("/webhook", (req, res) => {
 
 // 🤖 HANDLE MESSAGES
 app.post("/webhook", async (req, res) => {
-  console.log("🔥 WEBHOOK HIT"); // ✅ DEBUG
+  console.log("🔥 WEBHOOK HIT");
 
   try {
     const entry = req.body.entry?.[0];
@@ -46,7 +46,6 @@ app.post("/webhook", async (req, res) => {
     const value = changes?.value;
     const message = value?.messages?.[0];
 
-    // ⚠️ IMPORTANT: ignore status updates
     if (!message) {
       return res.sendStatus(200);
     }
@@ -62,7 +61,7 @@ app.post("/webhook", async (req, res) => {
 
     let reply = "";
 
-    // 👋 GREETING (IMPROVED)
+    // 👋 GREETING
     if (["hi", "hello", "hey", "good morning", "good afternoon"].includes(text)) {
       reply = `🤖 Hello! Welcome to Classify AI 📚
 
@@ -99,7 +98,7 @@ Or send your question directly.`;
       reply = "📙 JAMB selected. Send your question or type 'set question'.";
     }
 
-    // 📝 SET QUESTIONS FEATURE (NEW)
+    // 📝 SET QUESTIONS FEATURE
     else if (text.includes("set question")) {
       reply = `📝 Practice Question:
 
@@ -114,24 +113,14 @@ D. 15
 👉 Reply with your answer (A, B, C, or D)`;
     }
 
-    // 🧠 AI RESPONSE
+    // 🧠 AI RESPONSE (✅ FIXED HERE)
     else {
-      const aiResponse = await openai.chat.completions.create({
+      const aiResponse = await openai.responses.create({
         model: "gpt-4.1-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are Classify AI, a helpful tutor for Nigerian students preparing for WAEC, NECO, and JAMB.
-Explain answers in a simple and clear way.`
-          },
-          {
-            role: "user",
-            content: text
-          }
-        ]
+        input: `Explain this clearly for a student: ${text}`
       });
 
-      reply = aiResponse.choices[0].message.content;
+      reply = aiResponse.output[0].content[0].text;
     }
 
     // 📤 SEND MESSAGE TO WHATSAPP
@@ -155,7 +144,8 @@ Explain answers in a simple and clear way.`
     res.sendStatus(200);
 
   } catch (error) {
-    console.error("❌ FULL ERROR:", error.response?.data || error.message);
+    console.error("❌ ERROR DETAILS:");
+    console.error(error);
     res.sendStatus(500);
   }
 });
