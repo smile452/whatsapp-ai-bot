@@ -46,6 +46,7 @@ app.post("/webhook", async (req, res) => {
     const value = changes?.value;
     const message = value?.messages?.[0];
 
+    // Ignore non-message events
     if (!message) {
       return res.sendStatus(200);
     }
@@ -113,14 +114,22 @@ D. 15
 👉 Reply with your answer (A, B, C, or D)`;
     }
 
-    // 🧠 AI RESPONSE (✅ FIXED HERE)
+    // 🧠 AI RESPONSE (✅ FIXED + SAFE)
     else {
-      const aiResponse = await openai.responses.create({
-        model: "gpt-4.1-mini",
-        input: `Explain this clearly for a student: ${text}`
-      });
+      try {
+        const aiResponse = await openai.responses.create({
+          model: "gpt-4.1-mini",
+          input: `Explain this clearly for a student: ${text}`
+        });
 
-      reply = aiResponse.output[0].content[0].text;
+        // ✅ SAFE OUTPUT
+        reply = aiResponse.output_text || 
+        "🤖 Sorry, I couldn't understand that. Try again.";
+
+      } catch (err) {
+        console.error("❌ OpenAI ERROR:", err);
+        reply = "⚠️ AI is not responding right now. Please try again later.";
+      }
     }
 
     // 📤 SEND MESSAGE TO WHATSAPP
