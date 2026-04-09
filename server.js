@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 // 🔐 CONFIG
-const VERIFY_TOKEN = "myverifytoken";
+const VERIFY_TOKEN = "EAANbQebo13MBRBuvvygzpd1Q64br2JpkcuHOF5nEn2LZBGgRvT1G4iiXtr5SvkA3lMlsgeQ3TRXxfwYrhumODNjh9Dbpt18hH3WnaCkVs3p2T94YRo6f6DNrRaDPr8lumPZAX1ITpQcpKVY9zZCRZBYgvGprNqzarQ4UFoDdBzVsW00jONw2sYvLNsSekPoklE8ZAuW9qBhBoMRCBZBf17yplZCCvlC5NHM0MEZA4ZB0xvz6uZASYRi1YM7Naz2RMGuUQZBKkl60oXb3OZBbAA8gPQEJ7E83agZDZD";
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN; // safer
 const PHONE_NUMBER_ID = "1042701108929255";
 
