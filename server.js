@@ -11,7 +11,11 @@ const ACCESS_TOKEN = "EAANbQebo13MBRBuvvygzpd1Q64br2JpkcuHOF5nEn2LZBGgRvT1G4iiXt
 const PHONE_NUMBER_ID = "1042701108929255";
 
 // 🤖 OPENAI SETUP
-const openai = 
+const OpenAI = require("openai");
+
+const openai = new OpenAI({
+  apiKey: "sk-proj-xxxx"
+});
 
 // ✅ VERIFY WEBHOOK
 app.get("/webhook", (req, res) => {
