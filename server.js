@@ -17,38 +17,56 @@ if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !HUGGINGFACE_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
 
-// 🤖 AI FUNCTION (HUGGINGFACE)
+// 🤖 AI FUNCTION (STABLE HUGGINGFACE)
 async function askAI(message) {
-  try {
-    const response = await axios.post(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
-      {
-        inputs: `You are Classify AI, a helpful tutor for WAEC, NECO, and JAMB students.
-Explain answers clearly and simply.
+  const url = "https://api-inference.huggingface.co/models/google/flan-t5-large";
+
+  if (!HUGGINGFACE_API_KEY) {
+    return "❌ AI not configured properly.";
+  }
+
+  for (let i = 0; i < 3; i++) {
+    try {
+      const response = await axios.post(
+        url,
+        {
+          inputs: `You are a helpful tutor for WAEC, NECO, and JAMB students.
+Explain clearly and simply.
 
 Question: ${message}`
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
-          "Content-Type": "application/json"
         },
-        timeout: 20000
+        {
+          headers: {
+            Authorization: `Bearer ${HUGGINGFACE_API_KEY}`
+          },
+          timeout: 20000
+        }
+      );
+
+      const data = response.data;
+
+      // ✅ Success
+      if (Array.isArray(data)) {
+        return data[0].generated_text.substring(0, 1500);
       }
-    );
 
-    const result = response.data;
+      // ⏳ Model loading
+      if (data.error && data.error.includes("loading")) {
+        console.log("⏳ Model loading... retrying");
+        await new Promise(res => setTimeout(res, 4000));
+        continue;
+      }
 
-    if (Array.isArray(result)) {
-      return result[0].generated_text.substring(0, 1500);
+      console.log("⚠️ Unexpected response:", data);
+      return "⚠️ AI gave unexpected response.";
+
+    } catch (error) {
+      console.log(`Retrying AI... (${i + 1})`);
+      await new Promise(res => setTimeout(res, 3000));
     }
-
-    return "⚠️ AI not responding. Try again.";
-
-  } catch (error) {
-    console.error("🔥 HF ERROR:", error.response?.data || error.message);
-    return "❌ AI error. Try again later.";
   }
+
+  return "❌ AI is busy right now. Try again shortly.";
 }
 
 // ✅ VERIFY WEBHOOK
