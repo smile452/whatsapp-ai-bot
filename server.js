@@ -5,21 +5,61 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const app = express();
 app.use(express.json());
 
-// 🔐 VERIFY TOKEN (must match Meta dashboard)
+// 🔐 VERIFY TOKEN
 const VERIFY_TOKEN = "myverifytoken";
 
-// 🔑 ENV VARIABLES (SET THESE IN RENDER)
+// 🔑 ENV VARIABLES
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// ⚠️ CHECK IF TOKENS EXIST
+// ⚠️ CHECK ENV
 if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
 
 // 🤖 GEMINI SETUP
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+// 🤖 AI FUNCTION (FIXED)
+async function askAI(message) {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash" // ✅ UPDATED MODEL (important)
+    });
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `You are Classify AI, a helpful tutor for WAEC, NECO, and JAMB students.
+Explain answers clearly and simply.
+
+Question: ${message}`
+            }
+          ]
+        }
+      ]
+    });
+
+    const response = result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw new Error("Empty response from Gemini");
+    }
+
+    return text;
+
+  } catch (error) {
+    console.error("🔥 GEMINI ERROR FULL:", error);
+
+    // Show real error in WhatsApp (for debugging)
+    return `❌ AI Error: ${error.message}`;
+  }
+}
 
 // ✅ VERIFY WEBHOOK
 app.get("/webhook", (req, res) => {
@@ -34,27 +74,6 @@ app.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-// 🤖 AI FUNCTION
-async function askAI(message) {
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-    const result = await model.generateContent(
-      `You are Classify AI, a tutor for WAEC, NECO, and JAMB students.
-Explain clearly and simply.
-
-Question: ${message}`
-    );
-
-    const response = await result.response;
-    return response.text();
-
-  } catch (error) {
-    console.error("❌ GEMINI ERROR:", error);
-    return "⚠️ AI is not responding right now. Try again later.";
-  }
-}
-
 // 🤖 HANDLE MESSAGES
 app.post("/webhook", async (req, res) => {
   console.log("🔥 WEBHOOK HIT");
@@ -65,7 +84,6 @@ app.post("/webhook", async (req, res) => {
     const value = changes?.value;
     const message = value?.messages?.[0];
 
-    // Ignore non-message events
     if (!message) {
       return res.sendStatus(200);
     }
@@ -74,7 +92,7 @@ app.post("/webhook", async (req, res) => {
 
     const text =
       message.type === "text"
-        ? message.text.body.toLowerCase().trim()
+        ? message.text.body.trim().toLowerCase()
         : "";
 
     console.log("📩 User says:", text);
@@ -118,7 +136,7 @@ Or send your question directly.`;
       reply = "📙 JAMB selected. Send your question or type 'set question'.";
     }
 
-    // 📝 SET QUESTIONS FEATURE
+    // 📝 PRACTICE
     else if (text.includes("set question")) {
       reply = `📝 Practice Question:
 
@@ -133,12 +151,12 @@ D. 15
 👉 Reply with your answer (A, B, C, or D)`;
     }
 
-    // 🧠 GEMINI AI RESPONSE
+    // 🧠 AI RESPONSE
     else {
       reply = await askAI(text);
     }
 
-    // 📤 SEND MESSAGE TO WHATSAPP
+    // 📤 SEND MESSAGE
     const response = await axios.post(
       `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -159,7 +177,7 @@ D. 15
     res.sendStatus(200);
 
   } catch (error) {
-    console.error("❌ ERROR DETAILS:", error);
+    console.error("❌ SERVER ERROR:", error.response?.data || error.message);
     res.sendStatus(500);
   }
 });
