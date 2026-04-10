@@ -13,7 +13,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// ⚠️ CHECK ENV
+// ⚠️ CHECK ENV VARIABLES
 if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
@@ -21,11 +21,11 @@ if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
 // 🤖 GEMINI SETUP
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// 🤖 AI FUNCTION (FIXED)
+// 🤖 AI FUNCTION (STABLE VERSION)
 async function askAI(message) {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash" // ✅ UPDATED MODEL (important)
+      model: "gemini-1.5-flash"
     });
 
     const result = await model.generateContent({
@@ -44,20 +44,17 @@ Question: ${message}`
       ]
     });
 
-    const response = result.response;
-    const text = response.text();
+    const text = result?.response?.text();
 
     if (!text) {
-      throw new Error("Empty response from Gemini");
+      return "⚠️ AI didn't return a response. Try again.";
     }
 
-    return text;
+    return text.substring(0, 1500); // prevent very long replies
 
   } catch (error) {
-    console.error("🔥 GEMINI ERROR FULL:", error);
-
-    // Show real error in WhatsApp (for debugging)
-    return `❌ AI Error: ${error.message}`;
+    console.error("🔥 GEMINI ERROR:", error.message);
+    return "❌ AI is currently busy. Please try again.";
   }
 }
 
@@ -71,6 +68,7 @@ app.get("/webhook", (req, res) => {
     console.log("✅ Webhook verified");
     return res.status(200).send(challenge);
   }
+
   return res.sendStatus(403);
 });
 
@@ -79,10 +77,7 @@ app.post("/webhook", async (req, res) => {
   console.log("🔥 WEBHOOK HIT");
 
   try {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-    const message = value?.messages?.[0];
+    const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) {
       return res.sendStatus(200);
@@ -90,10 +85,13 @@ app.post("/webhook", async (req, res) => {
 
     const from = message.from;
 
-    const text =
-      message.type === "text"
-        ? message.text.body.trim().toLowerCase()
-        : "";
+    // ✅ ONLY HANDLE TEXT
+    if (message.type !== "text") {
+      await sendMessage(from, "⚠️ Please send a text message.");
+      return res.sendStatus(200);
+    }
+
+    const text = message.text.body.trim().toLowerCase();
 
     console.log("📩 User says:", text);
 
@@ -112,43 +110,38 @@ I can help you with:
 ✅ JAMB  
 
 💡 What I can do:
-1️⃣ Answer past questions  
-2️⃣ Explain answers step-by-step  
+1️⃣ Answer questions  
+2️⃣ Explain answers  
 3️⃣ Set practice questions  
-4️⃣ Help you understand difficult topics  
+4️⃣ Teach difficult topics  
 
-👉 Type:
-- WAEC  
-- NECO  
-- JAMB  
-
+👉 Type WAEC, NECO, or JAMB  
 Or send your question directly.`;
     }
 
     // 📘 EXAM SELECTION
     else if (text.includes("waec")) {
-      reply = "📘 WAEC selected. Send your question or type 'set question'.";
+      reply = "📘 WAEC selected. Send your question.";
     }
     else if (text.includes("neco")) {
-      reply = "📗 NECO selected. Send your question or type 'set question'.";
+      reply = "📗 NECO selected. Send your question.";
     }
     else if (text.includes("jamb")) {
-      reply = "📙 JAMB selected. Send your question or type 'set question'.";
+      reply = "📙 JAMB selected. Send your question.";
     }
 
     // 📝 PRACTICE
     else if (text.includes("set question")) {
       reply = `📝 Practice Question:
 
-What is the value of x in the equation:
-2x + 5 = 15?
+2x + 5 = 15
 
 A. 3  
 B. 5  
 C. 10  
 D. 15  
 
-👉 Reply with your answer (A, B, C, or D)`;
+👉 Reply with A, B, C, or D`;
     }
 
     // 🧠 AI RESPONSE
@@ -156,31 +149,41 @@ D. 15
       reply = await askAI(text);
     }
 
-    // 📤 SEND MESSAGE
-    const response = await axios.post(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: reply }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    console.log("✅ Message sent:", response.data);
+    await sendMessage(from, reply);
 
     res.sendStatus(200);
 
   } catch (error) {
     console.error("❌ SERVER ERROR:", error.response?.data || error.message);
-    res.sendStatus(500);
+    res.sendStatus(200); // prevent WhatsApp retries
   }
 });
+
+// 📤 SEND MESSAGE FUNCTION (CLEAN)
+async function sendMessage(to, message) {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: to,
+        text: { body: message }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log("✅ Message sent");
+
+  } catch (error) {
+    console.error("❌ SEND ERROR:", error.response?.data || error.message);
+  }
+}
 
 // 🚀 START SERVER
 const PORT = process.env.PORT || 3000;
