@@ -1,6 +1,5 @@
 const express = require("express");
 const axios = require("axios");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 app.use(express.json());
@@ -11,50 +10,44 @@ const VERIFY_TOKEN = "myverifytoken";
 // 🔑 ENV VARIABLES
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 
 // ⚠️ CHECK ENV VARIABLES
-if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
+if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !HUGGINGFACE_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
 
-// 🤖 GEMINI SETUP
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-// 🤖 AI FUNCTION (STABLE VERSION)
+// 🤖 AI FUNCTION (HUGGINGFACE)
 async function askAI(message) {
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
-    });
-
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `You are Classify AI, a helpful tutor for WAEC, NECO, and JAMB students.
+    const response = await axios.post(
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+      {
+        inputs: `You are Classify AI, a helpful tutor for WAEC, NECO, and JAMB students.
 Explain answers clearly and simply.
 
 Question: ${message}`
-            }
-          ]
-        }
-      ]
-    });
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 20000
+      }
+    );
 
-    const text = result?.response?.text();
+    const result = response.data;
 
-    if (!text) {
-      return "⚠️ AI didn't return a response. Try again.";
+    if (Array.isArray(result)) {
+      return result[0].generated_text.substring(0, 1500);
     }
 
-    return text.substring(0, 1500); // prevent very long replies
+    return "⚠️ AI not responding. Try again.";
 
   } catch (error) {
-    console.error("🔥 GEMINI ERROR:", error.message);
-    return "❌ AI is currently busy. Please try again.";
+    console.error("🔥 HF ERROR:", error.response?.data || error.message);
+    return "❌ AI error. Try again later.";
   }
 }
 
@@ -79,20 +72,16 @@ app.post("/webhook", async (req, res) => {
   try {
     const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    if (!message) {
-      return res.sendStatus(200);
-    }
+    if (!message) return res.sendStatus(200);
 
     const from = message.from;
 
-    // ✅ ONLY HANDLE TEXT
     if (message.type !== "text") {
       await sendMessage(from, "⚠️ Please send a text message.");
       return res.sendStatus(200);
     }
 
     const text = message.text.body.trim().toLowerCase();
-
     console.log("📩 User says:", text);
 
     let reply = "";
@@ -119,7 +108,7 @@ I can help you with:
 Or send your question directly.`;
     }
 
-    // 📘 EXAM SELECTION
+    // 📘 EXAM
     else if (text.includes("waec")) {
       reply = "📘 WAEC selected. Send your question.";
     }
@@ -144,7 +133,7 @@ D. 15
 👉 Reply with A, B, C, or D`;
     }
 
-    // 🧠 AI RESPONSE
+    // 🧠 AI
     else {
       reply = await askAI(text);
     }
@@ -155,11 +144,11 @@ D. 15
 
   } catch (error) {
     console.error("❌ SERVER ERROR:", error.response?.data || error.message);
-    res.sendStatus(200); // prevent WhatsApp retries
+    res.sendStatus(200);
   }
 });
 
-// 📤 SEND MESSAGE FUNCTION (CLEAN)
+// 📤 SEND MESSAGE
 async function sendMessage(to, message) {
   try {
     await axios.post(
@@ -173,8 +162,7 @@ async function sendMessage(to, message) {
         headers: {
           Authorization: `Bearer ${ACCESS_TOKEN}`,
           "Content-Type": "application/json"
-        },
-        timeout: 10000
+        }
       }
     );
 
