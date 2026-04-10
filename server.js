@@ -1,6 +1,6 @@
 const express = require("express");
 const axios = require("axios");
-const OpenAI = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 app.use(express.json());
@@ -11,17 +11,15 @@ const VERIFY_TOKEN = "myverifytoken";
 // 🔑 ENV VARIABLES (SET THESE IN RENDER)
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // ⚠️ CHECK IF TOKENS EXIST
-if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !OPENAI_API_KEY) {
+if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
 
-// 🤖 OPENAI SETUP
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY
-});
+// 🤖 GEMINI SETUP
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // ✅ VERIFY WEBHOOK
 app.get("/webhook", (req, res) => {
@@ -35,6 +33,27 @@ app.get("/webhook", (req, res) => {
   }
   return res.sendStatus(403);
 });
+
+// 🤖 AI FUNCTION
+async function askAI(message) {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    const result = await model.generateContent(
+      `You are Classify AI, a tutor for WAEC, NECO, and JAMB students.
+Explain clearly and simply.
+
+Question: ${message}`
+    );
+
+    const response = await result.response;
+    return response.text();
+
+  } catch (error) {
+    console.error("❌ GEMINI ERROR:", error);
+    return "⚠️ AI is not responding right now. Try again later.";
+  }
+}
 
 // 🤖 HANDLE MESSAGES
 app.post("/webhook", async (req, res) => {
@@ -77,7 +96,7 @@ I can help you with:
 💡 What I can do:
 1️⃣ Answer past questions  
 2️⃣ Explain answers step-by-step  
-3️⃣ Set practice questions for you  
+3️⃣ Set practice questions  
 4️⃣ Help you understand difficult topics  
 
 👉 Type:
@@ -114,22 +133,9 @@ D. 15
 👉 Reply with your answer (A, B, C, or D)`;
     }
 
-    // 🧠 AI RESPONSE (✅ FIXED + SAFE)
+    // 🧠 GEMINI AI RESPONSE
     else {
-      try {
-        const aiResponse = await openai.responses.create({
-          model: "gpt-4.1-mini",
-          input: `Explain this clearly for a student: ${text}`
-        });
-
-        // ✅ SAFE OUTPUT
-        reply = aiResponse.output_text || 
-        "🤖 Sorry, I couldn't understand that. Try again.";
-
-      } catch (err) {
-        console.error("❌ OpenAI ERROR:", err);
-        reply = "⚠️ AI is not responding right now. Please try again later.";
-      }
+      reply = await askAI(text);
     }
 
     // 📤 SEND MESSAGE TO WHATSAPP
@@ -153,8 +159,7 @@ D. 15
     res.sendStatus(200);
 
   } catch (error) {
-    console.error("❌ ERROR DETAILS:");
-    console.error(error);
+    console.error("❌ ERROR DETAILS:", error);
     res.sendStatus(500);
   }
 });
