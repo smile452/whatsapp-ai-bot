@@ -17,9 +17,9 @@ if (!ACCESS_TOKEN || !PHONE_NUMBER_ID || !HUGGINGFACE_API_KEY) {
   console.error("❌ Missing environment variables!");
 }
 
-// 🤖 AI FUNCTION (STABLE HUGGINGFACE)
+// 🤖 AI FUNCTION (FIXED & STABLE)
 async function askAI(message) {
-  const url = "https://api-inference.huggingface.co/models/google/flan-t5-large";
+  const url = "https://api-inference.huggingface.co/models/google/flan-t5-base";
 
   if (!HUGGINGFACE_API_KEY) {
     return "❌ AI not configured properly.";
@@ -30,38 +30,36 @@ async function askAI(message) {
       const response = await axios.post(
         url,
         {
-          inputs: `You are a helpful tutor for WAEC, NECO, and JAMB students.
-Explain clearly and simply.
-
-Question: ${message}`
+          inputs: `Explain this clearly like a teacher to a secondary school student:\n${message}`
         },
         {
           headers: {
-            Authorization: `Bearer ${HUGGINGFACE_API_KEY}`
+            Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
+            "Content-Type": "application/json"
           },
-          timeout: 20000
+          timeout: 15000
         }
       );
 
       const data = response.data;
 
-      // ✅ Success
-      if (Array.isArray(data)) {
-        return data[0].generated_text.substring(0, 1500);
+      // ✅ SUCCESS
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        return data[0].generated_text.trim().substring(0, 1500);
       }
 
-      // ⏳ Model loading
-      if (data.error && data.error.includes("loading")) {
+      // ⏳ MODEL LOADING
+      if (data.error && data.error.toLowerCase().includes("loading")) {
         console.log("⏳ Model loading... retrying");
         await new Promise(res => setTimeout(res, 4000));
         continue;
       }
 
       console.log("⚠️ Unexpected response:", data);
-      return "⚠️ AI gave unexpected response.";
+      return "⚠️ AI returned an unexpected result.";
 
     } catch (error) {
-      console.log(`Retrying AI... (${i + 1})`);
+      console.error("🔥 HF ERROR:", error.response?.data || error.message);
       await new Promise(res => setTimeout(res, 3000));
     }
   }
