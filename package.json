@@ -1,13 +1,16 @@
 {
   "name": "whatsapp-bot",
   "version": "1.0.0",
+  "description": "WhatsApp AI Bot using HuggingFace",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "express": "^4.18.2",
-    "axios": "^1.6.0",
-    "@google/generative-ai": "^0.21.0"
+    "axios": "^1.6.0"
   }
 }
